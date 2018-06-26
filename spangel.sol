@@ -4,9 +4,9 @@ import "./SafeMath.sol";
 
 contract Spangel {
 
-  uint bank;
+  uint public bank;
   address creator;
-  uint beggerCount;
+  uint  public beggerCount;
 
   struct Begger {
     address owner;
@@ -53,7 +53,7 @@ contract Spangel {
     beggers[_uuid].coinRaised = 0;
     ttl = SafeMath.mul(ttl, 1 days);
     beggers[_uuid].ttl = SafeMath.add(ttl, now);
-    beggers[_uuid].projected = _projected;
+    beggers[_uuid].projected = SafeMath.mul(_projected, 1000000000000000000);
     beggers[_uuid].alive = true;
     beggers[_uuid].owner = msg.sender;
     beggerCount++;
@@ -65,7 +65,7 @@ contract Spangel {
 
   function give(bytes32 _uuid) public payable isAlive(_uuid) {
     require(msg.value < beggers[_uuid].projected);
-    beggers[_uuid].coinRaised = SafeMath.add(beggers[_uuid].coinRaised, SafeMath.div(msg.value, 200));
+    beggers[_uuid].coinRaised = SafeMath.add(beggers[_uuid].coinRaised, SafeMath.sub(msg.value, SafeMath.div(msg.value, 200)));
     bank = SafeMath.add(bank, msg.value);
     beggers[_uuid].givers[msg.sender] = SafeMath.add(msg.value, beggers[_uuid].givers[msg.sender]);
 
