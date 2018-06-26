@@ -3,7 +3,6 @@ pragma solidity ^0.4.20;
 import "./SafeMath.sol";
 
 contract Spangel {
-
   uint public bank;
   address creator;
   uint  public beggerCount;
@@ -41,6 +40,12 @@ contract Spangel {
     _;
   }
 
+  event CreatedBegger(bytes32 indexed _uuid);
+  event Refunded(bytes32 _uuid, address indexed _giver, uint indexed _refund);
+  event Give(bytes32 _uuid, uint indexed _given);
+  event Completed(bytes32 indexed _uuid);
+
+
   constructor() public {
     bank = 0;
     creator = msg.sender;
@@ -57,6 +62,8 @@ contract Spangel {
     beggers[_uuid].alive = true;
     beggers[_uuid].owner = msg.sender;
     beggerCount++;
+
+    emit CreatedBegger(_uuid);
   }
 
   function addResolver(bytes32 _uuid, address _resolver) public isOwner(_uuid) isAlive(_uuid) {
@@ -65,9 +72,13 @@ contract Spangel {
 
   function give(bytes32 _uuid) public payable isAlive(_uuid) {
     require(msg.value < beggers[_uuid].projected);
-    beggers[_uuid].coinRaised = SafeMath.add(beggers[_uuid].coinRaised, SafeMath.sub(msg.value, SafeMath.div(msg.value, 200)));
-    bank = SafeMath.add(bank, msg.value);
-    beggers[_uuid].givers[msg.sender] = SafeMath.add(msg.value, beggers[_uuid].givers[msg.sender]);
+    uint fee = SafeMath.div(msg.value, 200);
+    uint total = SafeMath.sub(msg.value, fee);
+    beggers[_uuid].coinRaised += total;
+    bank = address(this).balance;
+    beggers[_uuid].givers[msg.sender] += SafeMath.sub(msg.value, fee);
+
+    emit Give(_uuid, total);
 
     if (beggers[_uuid].coinRaised >= beggers[_uuid].projected) {
       beggers[_uuid].resolver.transfer(beggers[_uuid].projected);
@@ -76,8 +87,9 @@ contract Spangel {
       bank = SafeMath.sub(bank, SafeMath.sub(beggers[_uuid].coinRaised, beggers[_uuid].projected));
       beggers[_uuid].alive = false;
       beggers[_uuid].completed = true;
-    }
 
+      emit Completed(_uuid);
+    }
   }
 
   function refund(bytes32 _uuid) public isGiver(_uuid) isExpired(_uuid) {
@@ -89,6 +101,7 @@ contract Spangel {
     msg.sender.transfer(owed);
     beggers[_uuid].alive = false;
     beggers[_uuid].completed = true;
-  }
 
+    emit Refunded(_uuid, msg.sender, owed);
+  }
 }
